@@ -34,12 +34,12 @@
             background-position: center;
             filter: blur(30px);
             opacity: 0.3;
-            transition: background-image 0.5s ease-in-out;
+            transition: all 0.5s ease-in-out;
             transform: scale(1.1);
         }
         .display-container {
             width: 100%;
-            height: 680px;
+            height: 640px;
             position: relative;
             overflow: hidden;
             z-index: 1;
@@ -72,42 +72,23 @@
             opacity: 1;
             transition: all 0.5s ease-in-out;
         }
-        .artwork-info {
+        .info-overlay {
             position: absolute;
-            bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 8px;
-            transform: translateY(100%);
-            transition: transform 0.3s ease-in-out;
-        }
-        .artwork-wrapper:hover .artwork-info {
+            bottom: 80px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
             transform: translateY(0);
+            transition: transform 0.3s ease-in-out;
+            text-align: center;
+            z-index: 2;
         }
-        .controls {
-            height: 40px;
-            padding: 0 20px;
-            display: flex;
-            gap: 20px;
-            align-items: center;
-            background: #000;
-            position: relative;
-            z-index: 1;
-        }
-        select, input, button {
-            padding: 4px 8px;
-            border-radius: 4px;
-            border: 1px solid #444;
-            background: #222;
-            color: white;
-            font-size: 14px;
-        }
-        input[type="number"] {
-            width: 60px;
+        .info-overlay.hidden {
+            transform: translateY(100%);
         }
         .artwork-title {
-            font-size: 14px;
+            font-size: 16px;
             font-weight: bold;
             margin: 0;
             white-space: nowrap;
@@ -115,12 +96,57 @@
             text-overflow: ellipsis;
         }
         .artwork-artist {
-            font-size: 12px;
-            margin: 2px 0 0 0;
+            font-size: 14px;
+            margin: 4px 0 0 0;
             opacity: 0.8;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+        .controls {
+            height: 80px;
+            padding: 0 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.8);
+            position: relative;
+            z-index: 2;
+            backdrop-filter: blur(10px);
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        select, input, button {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+            backdrop-filter: blur(5px);
+            transition: all 0.2s ease-in-out;
+        }
+        select:hover, input:hover, button:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        select:focus, input:focus, button:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        input[type="number"] {
+            width: 60px;
+            text-align: center;
+        }
+        label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+        }
+        .spacer {
+            flex-grow: 1;
         }
     </style>
 </head>
@@ -132,133 +158,159 @@
                 {% for album in albums[:4] %}
                     <div class="artwork-wrapper">
                         <img class="artwork" src="{{ url_for('static', filename='images/' + album.filename) }}" alt="Album Artwork">
-                        <div class="artwork-info">
-                            <p class="artwork-title">{{ album.title }}</p>
-                            <p class="artwork-artist">{{ album.artist }}</p>
-                        </div>
                     </div>
                 {% endfor %}
             </div>
+            <div class="info-overlay">
+                <p class="artwork-title"></p>
+                <p class="artwork-artist"></p>
+            </div>
         </div>
         <div class="controls">
-            <select id="displayMode">
-                <option value="single">Single Image</option>
-                <option value="grid">2x2 Grid</option>
-            </select>
-            <label>
-                Speed (s):
-                <input type="number" id="speed" value="5" min="1" max="60" step="1">
-            </label>
-            <button id="playPause">Pause</button>
+            <div class="control-group">
+                <select id="displayMode">
+                    <option value="single">Single</option>
+                    <option value="grid">Grid</option>
+                </select>
+                <label>
+                    Speed
+                    <input type="number" id="speed" value="5" min="1" max="60" step="1">
+                </label>
+            </div>
+            <div class="spacer"></div>
+            <div class="control-group">
+                <button id="toggleInfo">Show Info</button>
+                <button id="playPause">Pause</button>
+            </div>
         </div>
     </div>
 
     <script>
-            const container = document.querySelector('.display-container');
-            const imageContainer = document.querySelector('.image-container');
-            const backgroundBlur = document.querySelector('.background-blur');
-            const displayMode = document.getElementById('displayMode');
-            const speedInput = document.getElementById('speed');
-            const playPauseBtn = document.getElementById('playPause');
+        const container = document.querySelector('.display-container');
+        const imageContainer = document.querySelector('.image-container');
+        const backgroundBlur = document.querySelector('.background-blur');
+        const infoOverlay = document.querySelector('.info-overlay');
+        const titleElement = document.querySelector('.artwork-title');
+        const artistElement = document.querySelector('.artwork-artist');
+        const displayMode = document.getElementById('displayMode');
+        const speedInput = document.getElementById('speed');
+        const playPauseBtn = document.getElementById('playPause');
+        const toggleInfoBtn = document.getElementById('toggleInfo');
 
-            let albums = {{ albums|tojson|safe }};
-            let currentIndex = 0;
-            let isPlaying = true;
-            let slideTimer;
+        let albums = {{ albums|tojson|safe }};
+        let currentIndex = 0;
+        let isPlaying = true;
+        let showInfo = false;
+        let slideTimer;
 
-            // Fisher-Yates shuffle algorithm
-            function shuffleArray(array) {
-                for (let i = array.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [array[i], array[j]] = [array[j], array[i]];
-                }
-                return array;
+        // Fisher-Yates shuffle algorithm
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
             }
+            return array;
+        }
 
-            // Shuffle albums initially
-            albums = shuffleArray([...albums]);
+        // Shuffle albums initially
+        albums = shuffleArray([...albums]);
 
-            function updateBackground(album) {
-                if (album) {
-                    const imageUrl = `/static/images/${album.filename}`;
+        function updateBackground(album) {
+            if (album) {
+                const imageUrl = `/static/images/${album.filename}`;
+                // Create new image element to preload
+                const img = new Image();
+                img.onload = () => {
                     backgroundBlur.style.backgroundImage = `url(${imageUrl})`;
-                }
+                };
+                img.src = imageUrl;
             }
+        }
 
-            function updateDisplay() {
-                const mode = displayMode.value;
-                imageContainer.classList.toggle('grid-2x2', mode === 'grid');
-
-                const imagesToShow = mode === 'grid' ? 4 : 1;
-                imageContainer.innerHTML = '';
-
-                // Update background with the first visible album
-                const firstAlbum = albums[currentIndex];
-                updateBackground(firstAlbum);
-
-                for (let i = 0; i < imagesToShow; i++) {
-                    const idx = (currentIndex + i) % albums.length;
-                    const album = albums[idx];
-
-                    if (!album) continue;
-
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'artwork-wrapper';
-
-                    wrapper.innerHTML = `
-                        <img class="artwork" src="/static/images/${album.filename}" alt="Album Artwork">
-                        <div class="artwork-info">
-                            <p class="artwork-title">${album.title}</p>
-                            <p class="artwork-artist">${album.artist}</p>
-                        </div>
-                    `;
-                    imageContainer.appendChild(wrapper);
-                }
+        function updateInfo(album) {
+            if (album) {
+                titleElement.textContent = album.title;
+                artistElement.textContent = album.artist;
             }
+        }
 
-            function nextSlide() {
-                if (!isPlaying) return;
-                currentIndex = (currentIndex + 1) % albums.length;
-                // Reshuffle when we've gone through all albums
-                if (currentIndex === 0) {
-                    albums = shuffleArray([...albums]);
-                }
-                imageContainer.classList.add('hidden');
-                setTimeout(() => {
-                    updateDisplay();
-                    imageContainer.classList.remove('hidden');
-                }, 500);
+        function updateDisplay() {
+            const mode = displayMode.value;
+            imageContainer.classList.toggle('grid-2x2', mode === 'grid');
+
+            const imagesToShow = mode === 'grid' ? 4 : 1;
+            imageContainer.innerHTML = '';
+
+            // Update background and info with the first visible album
+            const firstAlbum = albums[currentIndex];
+            updateBackground(firstAlbum);
+            updateInfo(firstAlbum);
+
+            for (let i = 0; i < imagesToShow; i++) {
+                const idx = (currentIndex + i) % albums.length;
+                const album = albums[idx];
+
+                if (!album) continue;
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'artwork-wrapper';
+                wrapper.innerHTML = `
+                    <img class="artwork" src="/static/images/${album.filename}" alt="Album Artwork">
+                `;
+                imageContainer.appendChild(wrapper);
             }
+        }
 
-            function updateTimer() {
-                clearInterval(slideTimer);
-                if (isPlaying) {
-                    slideTimer = setInterval(nextSlide, speedInput.value * 1000);
-                }
+        function nextSlide() {
+            if (!isPlaying) return;
+            currentIndex = (currentIndex + 1) % albums.length;
+            // Reshuffle when we've gone through all albums
+            if (currentIndex === 0) {
+                albums = shuffleArray([...albums]);
             }
-
-            displayMode.addEventListener('change', () => {
+            imageContainer.classList.add('hidden');
+            setTimeout(() => {
                 updateDisplay();
-                updateTimer();
-            });
+                imageContainer.classList.remove('hidden');
+            }, 500);
+        }
 
-            speedInput.addEventListener('change', updateTimer);
+        function updateTimer() {
+            clearInterval(slideTimer);
+            if (isPlaying) {
+                slideTimer = setInterval(nextSlide, speedInput.value * 1000);
+            }
+        }
 
-            playPauseBtn.addEventListener('click', () => {
-                isPlaying = !isPlaying;
-                playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
-                updateTimer();
-            });
-
-            // Initial setup
+        displayMode.addEventListener('change', () => {
             updateDisplay();
             updateTimer();
+        });
 
-            // Preload images
-            albums.forEach(album => {
-                const img = new Image();
-                img.src = `/static/images/${album.filename}`;
-            });
-        </script>
+        speedInput.addEventListener('change', updateTimer);
+
+        playPauseBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
+            updateTimer();
+        });
+
+        toggleInfoBtn.addEventListener('click', () => {
+            showInfo = !showInfo;
+            infoOverlay.classList.toggle('hidden', !showInfo);
+            toggleInfoBtn.textContent = showInfo ? 'Hide Info' : 'Show Info';
+        });
+
+        // Initial setup
+        infoOverlay.classList.add('hidden');
+        updateDisplay();
+        updateTimer();
+
+        // Preload images
+        albums.forEach(album => {
+            const img = new Image();
+            img.src = `/static/images/${album.filename}`;
+        });
+    </script>
 </body>
 </html>
