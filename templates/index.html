@@ -36,7 +36,6 @@
             opacity: 0.3;
             transition: background-image 0.5s ease-in-out;
             transform: scale(1.1);
-            z-index: 0;
         }
         .display-container {
             width: 100%;
@@ -167,14 +166,23 @@
         let isPlaying = true;
         let slideTimer;
 
-        function updateBackground(imageUrl) {
-            backgroundBlur.style.backgroundImage = `url(${imageUrl})`;
+        function updateBackground(album) {
+            if (album) {
+                const imageUrl = `/static/images/${album.filename}`;
+                backgroundBlur.style.backgroundImage = `url(${imageUrl})`;
+            }
         }
 
         function updateDisplay() {
             const mode = displayMode.value;
+            imageContainer.classList.toggle('grid-2x2', mode === 'grid');
+
             const imagesToShow = mode === 'grid' ? 4 : 1;
             imageContainer.innerHTML = '';
+
+            // Update background with the first visible album
+            const firstAlbum = albums[currentIndex];
+            updateBackground(firstAlbum);
 
             for (let i = 0; i < imagesToShow; i++) {
                 const idx = (currentIndex + i) % albums.length;
@@ -198,21 +206,12 @@
 
         function nextSlide() {
             if (!isPlaying) return;
-
-            const nextIndex = (currentIndex + 1) % albums.length;
-            const nextAlbum = albums[nextIndex];
-
-            if (nextAlbum) {
-                const imageUrl = `/static/images/${nextAlbum.filename}`;
-                updateBackground(imageUrl);
-
-                imageContainer.classList.add('hidden');
-                setTimeout(() => {
-                    currentIndex = nextIndex;
-                    updateDisplay();
-                    imageContainer.classList.remove('hidden');
-                }, 500);
-            }
+            currentIndex = (currentIndex + 1) % albums.length;
+            imageContainer.classList.add('hidden');
+            setTimeout(() => {
+                updateDisplay();
+                imageContainer.classList.remove('hidden');
+            }, 500);
         }
 
         function updateTimer() {
@@ -222,14 +221,6 @@
             }
         }
 
-        // Initial setup
-        if (albums.length > 0) {
-            updateBackground(`/static/images/${albums[0].filename}`);
-        }
-        updateDisplay();
-        updateTimer();
-
-        // Event listeners
         displayMode.addEventListener('change', () => {
             updateDisplay();
             updateTimer();
@@ -242,6 +233,10 @@
             playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
             updateTimer();
         });
+
+        // Initial setup
+        updateDisplay();
+        updateTimer();
 
         // Preload images
         albums.forEach(album => {
