@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 import os
 import socket
 import logging
+import json
 
 app = Flask(__name__)
 
@@ -23,14 +24,29 @@ def find_free_port(start_port=5000, max_port=5100):
                 continue
     raise RuntimeError('No free ports found in range')
 
+def load_album_data():
+    """Load album metadata from JSON file."""
+    try:
+        json_path = os.path.join(app.config['UPLOAD_FOLDER'], 'albums.json')
+        if os.path.exists(json_path):
+            with open(json_path, 'r') as f:
+                return json.load(f)
+    except Exception as e:
+        app.logger.error(f"Error loading album data: {str(e)}")
+    return []
+
 @app.route('/')
 def index():
-    # Get list of images from the upload folder
-    images = []
-    for filename in os.listdir(app.config['UPLOAD_FOLDER']):
-        if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-            images.append(filename)
-    return render_template('index.html', images=images)
+    # Load album metadata
+    albums = load_album_data()
+    if not albums:
+        # Fallback to just listing image files if no metadata
+        albums = []
+        for filename in os.listdir(app.config['UPLOAD_FOLDER']):
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg')) and not filename.startswith('.'):
+                albums.append({'filename': filename, 'title': filename, 'artist': ''})
+
+    return render_template('index.html', albums=albums)
 
 if __name__ == '__main__':
     # Configure logging

@@ -42,14 +42,34 @@
         .image-container.hidden {
             opacity: 0;
         }
-        .artwork {
+        .artwork-wrapper {
+            position: relative;
             width: 300px;
             height: 300px;
             margin: 10px;
+            overflow: hidden;
+        }
+        .artwork {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
             opacity: 1;
             transition: all 0.5s ease-in-out;
         }
-        .grid-2x2 .artwork {
+        .artwork-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px;
+            transform: translateY(100%);
+            transition: transform 0.3s ease-in-out;
+        }
+        .artwork-wrapper:hover .artwork-info {
+            transform: translateY(0);
+        }
+        .grid-2x2 .artwork-wrapper {
             width: 320px;
             height: 320px;
             margin: 5px;
@@ -73,14 +93,30 @@
         input[type="number"] {
             width: 60px;
         }
+        .artwork-title {
+            font-size: 12px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .artwork-artist {
+            font-size: 11px;
+            margin: 2px 0 0 0;
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
     <div class="main-container">
         <div class="display-container">
             <div class="image-container">
-                {% for image in images[:4] %}
-                    <img class="artwork" src="{{ url_for('static', filename='images/' + image) }}" alt="Album Artwork">
+                {% for album in albums[:4] %}
+                    <div class="artwork-wrapper">
+                        <img class="artwork" src="{{ url_for('static', filename='images/' + album.filename) }}" alt="Album Artwork">
+                        <div class="artwork-info">
+                            <p class="artwork-title">{{ album.title }}</p>
+                            <p class="artwork-artist">{{ album.artist }}</p>
+                        </div>
+                    </div>
                 {% endfor %}
             </div>
         </div>
@@ -104,7 +140,7 @@
         const speedInput = document.getElementById('speed');
         const playPauseBtn = document.getElementById('playPause');
 
-        let images = {{ images|tojson|safe }};
+        const albums = {{ albums|tojson|safe }};
         let currentIndex = 0;
         let isPlaying = true;
         let slideTimer;
@@ -117,18 +153,25 @@
             imageContainer.innerHTML = '';
 
             for (let i = 0; i < imagesToShow; i++) {
-                const idx = (currentIndex + i) % images.length;
-                const img = document.createElement('img');
-                img.className = 'artwork';
-                img.src = `/static/images/${images[idx]}`;
-                img.alt = 'Album Artwork';
-                imageContainer.appendChild(img);
+                const idx = (currentIndex + i) % albums.length;
+                const album = albums[idx];
+                const wrapper = document.createElement('div');
+                wrapper.className = 'artwork-wrapper';
+
+                wrapper.innerHTML = `
+                    <img class="artwork" src="/static/images/${album.filename}" alt="Album Artwork">
+                    <div class="artwork-info">
+                        <p class="artwork-title">${album.title}</p>
+                        <p class="artwork-artist">${album.artist}</p>
+                    </div>
+                `;
+                imageContainer.appendChild(wrapper);
             }
         }
 
         function nextSlide() {
             if (!isPlaying) return;
-            currentIndex = (currentIndex + 1) % images.length;
+            currentIndex = (currentIndex + 1) % albums.length;
             imageContainer.classList.add('hidden');
             setTimeout(() => {
                 updateDisplay();
@@ -161,9 +204,9 @@
         updateTimer();
 
         // Preload images
-        images.forEach(image => {
+        albums.forEach(album => {
             const img = new Image();
-            img.src = `/static/images/${image}`;
+            img.src = `/static/images/${album.filename}`;
         });
     </script>
 </body>
