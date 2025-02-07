@@ -1,67 +1,50 @@
 import os
 import requests
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
-import time
-import json
 import logging
+import json
+import time
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class DiscogsCollectionScraper:
-    def __init__(self, base_url, save_dir='static/images'):
-        self.base_url = base_url
+    def __init__(self, username, token, save_dir='static/images'):
+        self.username = username
+        self.token = token
         self.save_dir = save_dir
         self.albums = []
+        self.base_url = f'https://api.discogs.com/users/{username}/collection/folders/0/releases'
         os.makedirs(save_dir, exist_ok=True)
-        
-    def get_page(self, url):
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        }
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        return response.text
 
-    def parse_album(self, item):
-        try:
-            img_elem = item.find('img', class_='thumbnail_center')
-            if not img_elem:
-                return None
-                
-            img_url = img_elem.get('src')
-            if not img_url:
-                return None
-                
-            # Get high-quality image URL
-            img_url = img_url.replace('_small', '_600')
-            
-            # Extract title and artist
-            title_elem = item.find('a', class_='release')
-            artist_elem = item.find('a', class_='artist')
-            
-            if not title_elem or not artist_elem:
-                return None
-                
-            return {
-                'img_url': img_url,
-                'title': title_elem.text.strip(),
-                'artist': artist_elem.text.strip()
-            }
-        except Exception as e:
-            logger.error(f"Error parsing album: {str(e)}")
-            return None
+    def get_collection_page(self, page=1):
+        headers = {
+            'Authorization': f'Discogs token={self.token}',
+            'User-Agent': 'AlbumArtDisplayApp/1.0'
+        }
+        params = {
+            'page': page,
+            'per_page': 100
+        }
+        logger.info(f"Requesting page {page} from Discogs API")
+        response = requests.get(self.base_url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
+        logger.info(f"Received {len(data.get('releases', []))} releases from page {page}")
+        return data
 
     def download_image(self, img_url, filename):
         try:
-            response = requests.get(img_url)
+            headers = {
+                'User-Agent': 'AlbumArtDisplayApp/1.0'
+            }
+            logger.info(f"Downloading image from {img_url}")
+            response = requests.get(img_url, headers=headers)
             response.raise_for_status()
-            
+
             file_path = os.path.join(self.save_dir, filename)
             with open(file_path, 'wb') as f:
                 f.write(response.content)
-            
+            logger.info(f"Successfully saved image to {filename}")
             return filename
         except Exception as e:
             logger.error(f"Error downloading image {img_url}: {str(e)}")
@@ -69,47 +52,77 @@ class DiscogsCollectionScraper:
 
     def scrape_collection(self):
         page = 1
-        while True:
-            url = f"{self.base_url}?page={page}"
-            logger.info(f"Scraping page {page}")
-            
+        total_pages = 1  # Will be updated from API response
+
+        while page <= total_pages:
+            logger.info(f"Processing page {page} of {total_pages}")
             try:
-                html = self.get_page(url)
-                soup = BeautifulSoup(html, 'html.parser')
-                items = soup.find_all('tr', class_='collection-row')
-                
-                if not items:
+                data = self.get_collection_page(page)
+                pagination = data.get('pagination', {})
+                total_pages = pagination.get('pages', 1)
+
+                releases = data.get('releases', [])
+                if not releases:
+                    logger.warning(f"No releases found on page {page}")
                     break
-                    
-                for item in items:
-                    album_data = self.parse_album(item)
-                    if album_data:
-                        # Generate filename from artist and title
-                        filename = f"{album_data['artist']}_{album_data['title']}.jpg"
-                        filename = "".join(c for c in filename if c.isalnum() or c in (' ', '-', '_')).rstrip()
-                        filename = f"{len(self.albums):03d}_{filename[:50]}.jpg"
-                        
-                        # Download image
-                        if self.download_image(album_data['img_url'], filename):
-                            album_data['filename'] = filename
-                            self.albums.append(album_data)
-                            logger.info(f"Added album: {album_data['artist']} - {album_data['title']}")
-                
+
+                for release in releases:
+                    basic_information = release.get('basic_information', {})
+                    if not basic_information:
+                        continue
+
+                    # Get the cover image URL directly
+                    cover_image = basic_information.get('cover_image')
+                    if not cover_image:
+                        logger.warning(f"No cover image found for release {basic_information.get('title', 'Unknown')}")
+                        continue
+
+                    # Generate filename from artist and title
+                    artists = basic_information.get('artists', [{}])
+                    artist = artists[0].get('name', 'Unknown Artist') if artists else 'Unknown Artist'
+                    title = basic_information.get('title', 'Unknown Title')
+
+                    logger.info(f"Processing album: {artist} - {title}")
+
+                    filename = f"{artist}_{title}.jpg"
+                    filename = "".join(c for c in filename if c.isalnum() or c in (' ', '-', '_')).rstrip()
+                    filename = f"{len(self.albums):03d}_{filename[:50]}.jpg"
+
+                    # Download image
+                    if self.download_image(cover_image, filename):
+                        album_data = {
+                            'filename': filename,
+                            'title': title,
+                            'artist': artist
+                        }
+                        self.albums.append(album_data)
+                        logger.info(f"Successfully added album: {artist} - {title}")
+
                 time.sleep(1)  # Be nice to Discogs servers
                 page += 1
-                
+
             except Exception as e:
-                logger.error(f"Error scraping page {page}: {str(e)}")
+                logger.error(f"Error processing page {page}: {str(e)}")
                 break
-        
+
         # Save album metadata
-        with open(os.path.join(self.save_dir, 'albums.json'), 'w') as f:
-            json.dump(self.albums, f, indent=2)
-        
+        if self.albums:
+            metadata_path = os.path.join(self.save_dir, 'albums.json')
+            with open(metadata_path, 'w') as f:
+                json.dump(self.albums, f, indent=2)
+            logger.info(f"Saved metadata for {len(self.albums)} albums to {metadata_path}")
+        else:
+            logger.warning("No albums were processed successfully")
+
         return self.albums
 
 if __name__ == '__main__':
-    collection_url = "https://www.discogs.com/user/ingridvp/collection"
-    scraper = DiscogsCollectionScraper(collection_url)
+    token = os.environ.get('DISCOGS_TOKEN')
+    if not token:
+        logger.error("No Discogs token found in environment variables")
+        exit(1)
+
+    username = "ingridvp"
+    scraper = DiscogsCollectionScraper(username, token)
     albums = scraper.scrape_collection()
     logger.info(f"Successfully scraped {len(albums)} albums")
