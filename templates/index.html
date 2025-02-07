@@ -32,7 +32,7 @@
             top: 50%;
             transform: translate(-50%, -50%);
             border-radius: 50%;
-            opacity: 0.3;
+            opacity: 0.5;
             transition: background-color 0.5s ease-in-out;
         }
         .display-container {
@@ -57,7 +57,11 @@
             opacity: 0;
         }
         .artwork-wrapper {
-            position: relative;
+            /* Center the artwork-wrapper in the main-container */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -40%);
             width: 340px;
             height: 340px;
             margin: 0;
@@ -74,8 +78,8 @@
             position: absolute;
             left: 0;
             right: 0;
-            bottom: 80px;
-            background: rgba(0, 0, 0, 0.1);
+            bottom: 40px;
+            background: rgba(0, 0, 0, 0.0);
             padding: 15px;
             text-align: center;
             z-index: 2;
@@ -227,9 +231,9 @@
         let albums = {{ albums|tojson|safe }};
         let currentIndex = 0;
         let isPlaying = true;
-        let showInfo = false;
+        let showInfo = true; // Show info by default
         let slideTimer;
-        let controlsVisible = true;
+        let controlsVisible = false; // Hide controls by default
 
         // Fisher-Yates shuffle algorithm
         function shuffleArray(array) {
@@ -289,7 +293,6 @@
             for (let i = 0; i < imagesToShow; i++) {
                 const idx = (currentIndex + i) % albums.length;
                 const album = albums[idx];
-
                 if (!album) continue;
 
                 const wrapper = document.createElement('div');
@@ -304,7 +307,6 @@
         function nextSlide() {
             if (!isPlaying) return;
             currentIndex = (currentIndex + 1) % albums.length;
-            // Reshuffle when we've gone through all albums
             if (currentIndex === 0) {
                 albums = shuffleArray([...albums]);
             }
@@ -351,9 +353,15 @@
 
 
         // Initial setup
-        infoPanel.classList.add('hidden');
+        speedInput.value = 6; // Set default speed to 6
         updateDisplay();
         updateTimer();
+
+        // Set initial states
+        infoPanel.classList.toggle('hidden', !showInfo);
+        controlsPanel.classList.toggle('hidden', !controlsVisible);
+        toggleInfoBtn.textContent = showInfo ? 'Hide Info' : 'Show Info';
+        toggleControlsBtn.innerHTML = `<i data-feather="${controlsVisible ? 'x' : 'sliders'}"></i>`;
 
         // Initialize Feather Icons
         feather.replace();
