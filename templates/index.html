@@ -13,6 +13,7 @@
             justify-content: center;
             height: 100vh;
             color: white;
+            font-family: system-ui, -apple-system, sans-serif;
         }
         .main-container {
             width: 720px;
@@ -24,7 +25,7 @@
         }
         .display-container {
             width: 100%;
-            height: 660px;
+            height: 680px;
             position: relative;
             overflow: hidden;
         }
@@ -44,15 +45,15 @@
         }
         .artwork-wrapper {
             position: relative;
-            width: 300px;
-            height: 300px;
-            margin: 10px;
+            width: 340px;
+            height: 340px;
+            margin: 0;
             overflow: hidden;
         }
         .artwork {
             width: 100%;
             height: 100%;
-            object-fit: contain;
+            object-fit: cover;
             opacity: 1;
             transition: all 0.5s ease-in-out;
         }
@@ -61,7 +62,7 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.8);
             padding: 8px;
             transform: translateY(100%);
             transition: transform 0.3s ease-in-out;
@@ -69,13 +70,8 @@
         .artwork-wrapper:hover .artwork-info {
             transform: translateY(0);
         }
-        .grid-2x2 .artwork-wrapper {
-            width: 320px;
-            height: 320px;
-            margin: 5px;
-        }
         .controls {
-            height: 60px;
+            height: 40px;
             padding: 0 20px;
             display: flex;
             gap: 20px;
@@ -83,7 +79,7 @@
             background: #000;
         }
         select, input, button {
-            padding: 6px;
+            padding: 4px 8px;
             border-radius: 4px;
             border: 1px solid #444;
             background: #222;
@@ -94,14 +90,20 @@
             width: 60px;
         }
         .artwork-title {
-            font-size: 12px;
+            font-size: 14px;
             font-weight: bold;
             margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .artwork-artist {
-            font-size: 11px;
+            font-size: 12px;
             margin: 2px 0 0 0;
             opacity: 0.8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
     </style>
 </head>
@@ -155,6 +157,9 @@
             for (let i = 0; i < imagesToShow; i++) {
                 const idx = (currentIndex + i) % albums.length;
                 const album = albums[idx];
+
+                if (!album) continue;
+
                 const wrapper = document.createElement('div');
                 wrapper.className = 'artwork-wrapper';
 
