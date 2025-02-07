@@ -22,12 +22,27 @@
             flex-direction: column;
             background: #111;
             overflow: hidden;
+            position: relative;
+        }
+        .background-blur {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-size: cover;
+            background-position: center;
+            filter: blur(30px);
+            opacity: 0.3;
+            transition: background-image 0.5s ease-in-out;
+            transform: scale(1.1);
         }
         .display-container {
             width: 100%;
             height: 680px;
             position: relative;
             overflow: hidden;
+            z-index: 1;
         }
         .image-container {
             position: absolute;
@@ -77,6 +92,8 @@
             gap: 20px;
             align-items: center;
             background: #000;
+            position: relative;
+            z-index: 1;
         }
         select, input, button {
             padding: 4px 8px;
@@ -109,6 +126,7 @@
 </head>
 <body>
     <div class="main-container">
+        <div class="background-blur"></div>
         <div class="display-container">
             <div class="image-container">
                 {% for album in albums[:4] %}
@@ -129,7 +147,7 @@
             </select>
             <label>
                 Speed (s):
-                <input type="number" id="speed" value="3" min="1" max="60" step="1">
+                <input type="number" id="speed" value="5" min="1" max="60" step="1">
             </label>
             <button id="playPause">Pause</button>
         </div>
@@ -138,6 +156,7 @@
     <script>
         const container = document.querySelector('.display-container');
         const imageContainer = document.querySelector('.image-container');
+        const backgroundBlur = document.querySelector('.background-blur');
         const displayMode = document.getElementById('displayMode');
         const speedInput = document.getElementById('speed');
         const playPauseBtn = document.getElementById('playPause');
@@ -147,12 +166,23 @@
         let isPlaying = true;
         let slideTimer;
 
+        function updateBackground(album) {
+            if (album) {
+                const imageUrl = `/static/images/${album.filename}`;
+                backgroundBlur.style.backgroundImage = `url(${imageUrl})`;
+            }
+        }
+
         function updateDisplay() {
             const mode = displayMode.value;
             imageContainer.classList.toggle('grid-2x2', mode === 'grid');
 
             const imagesToShow = mode === 'grid' ? 4 : 1;
             imageContainer.innerHTML = '';
+
+            // Update background with the first visible album
+            const firstAlbum = albums[currentIndex];
+            updateBackground(firstAlbum);
 
             for (let i = 0; i < imagesToShow; i++) {
                 const idx = (currentIndex + i) % albums.length;
