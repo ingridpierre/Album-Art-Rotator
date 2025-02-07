@@ -1,16 +1,154 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Number Selector</title>
+    <title>Album Artwork Display</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            color: white;
+        }
+        .display-container {
+            width: 720px;
+            height: 720px;
+            position: relative;
+            background: #111;
+            overflow: hidden;
+        }
+        .image-container {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 0.5s ease-in-out;
+        }
+        .image-container.hidden {
+            opacity: 0;
+        }
+        .artwork {
+            width: 300px;
+            height: 300px;
+            margin: 10px;
+            opacity: 1;
+            transition: all 0.5s ease-in-out;
+        }
+        .grid-2x2 .artwork {
+            width: 340px;
+            height: 340px;
+            margin: 5px;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        select, input, button {
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #444;
+            background: #222;
+            color: white;
+        }
+    </style>
 </head>
 <body>
-    <h2>Number Selector</h2>
-    <label for="numberSelect">Select a number (1-100):</label>
-    <select id="numberSelect">
-        <option value="" selected disabled>Choose a number</option>
-        {% for i in range(1, 101) %}
-            <option value="{{ i }}">{{ i }}</option>
-        {% endfor %}
-    </select>
+    <div class="display-container">
+        <div class="image-container">
+            {% for image in images[:4] %}
+                <img class="artwork" src="{{ url_for('static', filename='images/' + image) }}" alt="Album Artwork">
+            {% endfor %}
+        </div>
+    </div>
+    <div class="controls">
+        <select id="displayMode">
+            <option value="single">Single Image</option>
+            <option value="grid">2x2 Grid</option>
+        </select>
+        <label>
+            Speed (seconds):
+            <input type="number" id="speed" value="3" min="1" max="60" step="1">
+        </label>
+        <button id="playPause">Pause</button>
+    </div>
+
+    <script>
+        const container = document.querySelector('.display-container');
+        const imageContainer = document.querySelector('.image-container');
+        const displayMode = document.getElementById('displayMode');
+        const speedInput = document.getElementById('speed');
+        const playPauseBtn = document.getElementById('playPause');
+
+        let images = {{ images|tojson|safe }};
+        let currentIndex = 0;
+        let isPlaying = true;
+        let slideTimer;
+
+        function updateDisplay() {
+            const mode = displayMode.value;
+            imageContainer.classList.toggle('grid-2x2', mode === 'grid');
+
+            const imagesToShow = mode === 'grid' ? 4 : 1;
+            imageContainer.innerHTML = '';
+
+            for (let i = 0; i < imagesToShow; i++) {
+                const idx = (currentIndex + i) % images.length;
+                const img = document.createElement('img');
+                img.className = 'artwork';
+                img.src = `/static/images/${images[idx]}`;
+                img.alt = 'Album Artwork';
+                imageContainer.appendChild(img);
+            }
+        }
+
+        function nextSlide() {
+            if (!isPlaying) return;
+            currentIndex = (currentIndex + 1) % images.length;
+            imageContainer.classList.add('hidden');
+            setTimeout(() => {
+                updateDisplay();
+                imageContainer.classList.remove('hidden');
+            }, 500);
+        }
+
+        function updateTimer() {
+            clearInterval(slideTimer);
+            if (isPlaying) {
+                slideTimer = setInterval(nextSlide, speedInput.value * 1000);
+            }
+        }
+
+        displayMode.addEventListener('change', () => {
+            updateDisplay();
+            updateTimer();
+        });
+
+        speedInput.addEventListener('change', updateTimer);
+
+        playPauseBtn.addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
+            updateTimer();
+        });
+
+        // Initial setup
+        updateDisplay();
+        updateTimer();
+
+        // Preload images
+        images.forEach(image => {
+            const img = new Image();
+            img.src = `/static/images/${image}`;
+        });
+    </script>
 </body>
 </html>
