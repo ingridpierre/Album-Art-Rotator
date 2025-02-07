@@ -180,9 +180,6 @@
             const imagesToShow = mode === 'grid' ? 4 : 1;
             imageContainer.innerHTML = '';
 
-            // Update background with the first visible album
-            const firstAlbum = albums[currentIndex];
-            updateBackground(firstAlbum);
 
             for (let i = 0; i < imagesToShow; i++) {
                 const idx = (currentIndex + i) % albums.length;
@@ -208,6 +205,14 @@
             if (!isPlaying) return;
             currentIndex = (currentIndex + 1) % albums.length;
             imageContainer.classList.add('hidden');
+
+            // Update background with next album before transition
+            const nextAlbum = albums[currentIndex];
+            if (nextAlbum) {
+                const imageUrl = `/static/images/${nextAlbum.filename}`;
+                backgroundBlur.style.backgroundImage = `url(${imageUrl})`;
+            }
+
             setTimeout(() => {
                 updateDisplay();
                 imageContainer.classList.remove('hidden');
