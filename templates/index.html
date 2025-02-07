@@ -154,95 +154,111 @@
     </div>
 
     <script>
-        const container = document.querySelector('.display-container');
-        const imageContainer = document.querySelector('.image-container');
-        const backgroundBlur = document.querySelector('.background-blur');
-        const displayMode = document.getElementById('displayMode');
-        const speedInput = document.getElementById('speed');
-        const playPauseBtn = document.getElementById('playPause');
+            const container = document.querySelector('.display-container');
+            const imageContainer = document.querySelector('.image-container');
+            const backgroundBlur = document.querySelector('.background-blur');
+            const displayMode = document.getElementById('displayMode');
+            const speedInput = document.getElementById('speed');
+            const playPauseBtn = document.getElementById('playPause');
 
-        const albums = {{ albums|tojson|safe }};
-        let currentIndex = 0;
-        let isPlaying = true;
-        let slideTimer;
+            let albums = {{ albums|tojson|safe }};
+            let currentIndex = 0;
+            let isPlaying = true;
+            let slideTimer;
 
-        function updateBackground(album) {
-            if (album) {
-                const imageUrl = `/static/images/${album.filename}`;
-                backgroundBlur.style.backgroundImage = `url(${imageUrl})`;
+            // Fisher-Yates shuffle algorithm
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
             }
-        }
 
-        function updateDisplay() {
-            const mode = displayMode.value;
-            imageContainer.classList.toggle('grid-2x2', mode === 'grid');
+            // Shuffle albums initially
+            albums = shuffleArray([...albums]);
 
-            const imagesToShow = mode === 'grid' ? 4 : 1;
-            imageContainer.innerHTML = '';
-
-            // Update background with the first visible album
-            const firstAlbum = albums[currentIndex];
-            updateBackground(firstAlbum);
-
-            for (let i = 0; i < imagesToShow; i++) {
-                const idx = (currentIndex + i) % albums.length;
-                const album = albums[idx];
-
-                if (!album) continue;
-
-                const wrapper = document.createElement('div');
-                wrapper.className = 'artwork-wrapper';
-
-                wrapper.innerHTML = `
-                    <img class="artwork" src="/static/images/${album.filename}" alt="Album Artwork">
-                    <div class="artwork-info">
-                        <p class="artwork-title">${album.title}</p>
-                        <p class="artwork-artist">${album.artist}</p>
-                    </div>
-                `;
-                imageContainer.appendChild(wrapper);
+            function updateBackground(album) {
+                if (album) {
+                    const imageUrl = `/static/images/${album.filename}`;
+                    backgroundBlur.style.backgroundImage = `url(${imageUrl})`;
+                }
             }
-        }
 
-        function nextSlide() {
-            if (!isPlaying) return;
-            currentIndex = (currentIndex + 1) % albums.length;
-            imageContainer.classList.add('hidden');
-            setTimeout(() => {
+            function updateDisplay() {
+                const mode = displayMode.value;
+                imageContainer.classList.toggle('grid-2x2', mode === 'grid');
+
+                const imagesToShow = mode === 'grid' ? 4 : 1;
+                imageContainer.innerHTML = '';
+
+                // Update background with the first visible album
+                const firstAlbum = albums[currentIndex];
+                updateBackground(firstAlbum);
+
+                for (let i = 0; i < imagesToShow; i++) {
+                    const idx = (currentIndex + i) % albums.length;
+                    const album = albums[idx];
+
+                    if (!album) continue;
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'artwork-wrapper';
+
+                    wrapper.innerHTML = `
+                        <img class="artwork" src="/static/images/${album.filename}" alt="Album Artwork">
+                        <div class="artwork-info">
+                            <p class="artwork-title">${album.title}</p>
+                            <p class="artwork-artist">${album.artist}</p>
+                        </div>
+                    `;
+                    imageContainer.appendChild(wrapper);
+                }
+            }
+
+            function nextSlide() {
+                if (!isPlaying) return;
+                currentIndex = (currentIndex + 1) % albums.length;
+                // Reshuffle when we've gone through all albums
+                if (currentIndex === 0) {
+                    albums = shuffleArray([...albums]);
+                }
+                imageContainer.classList.add('hidden');
+                setTimeout(() => {
+                    updateDisplay();
+                    imageContainer.classList.remove('hidden');
+                }, 500);
+            }
+
+            function updateTimer() {
+                clearInterval(slideTimer);
+                if (isPlaying) {
+                    slideTimer = setInterval(nextSlide, speedInput.value * 1000);
+                }
+            }
+
+            displayMode.addEventListener('change', () => {
                 updateDisplay();
-                imageContainer.classList.remove('hidden');
-            }, 500);
-        }
+                updateTimer();
+            });
 
-        function updateTimer() {
-            clearInterval(slideTimer);
-            if (isPlaying) {
-                slideTimer = setInterval(nextSlide, speedInput.value * 1000);
-            }
-        }
+            speedInput.addEventListener('change', updateTimer);
 
-        displayMode.addEventListener('change', () => {
+            playPauseBtn.addEventListener('click', () => {
+                isPlaying = !isPlaying;
+                playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
+                updateTimer();
+            });
+
+            // Initial setup
             updateDisplay();
             updateTimer();
-        });
 
-        speedInput.addEventListener('change', updateTimer);
-
-        playPauseBtn.addEventListener('click', () => {
-            isPlaying = !isPlaying;
-            playPauseBtn.textContent = isPlaying ? 'Pause' : 'Play';
-            updateTimer();
-        });
-
-        // Initial setup
-        updateDisplay();
-        updateTimer();
-
-        // Preload images
-        albums.forEach(album => {
-            const img = new Image();
-            img.src = `/static/images/${album.filename}`;
-        });
-    </script>
+            // Preload images
+            albums.forEach(album => {
+                const img = new Image();
+                img.src = `/static/images/${album.filename}`;
+            });
+        </script>
 </body>
 </html>
