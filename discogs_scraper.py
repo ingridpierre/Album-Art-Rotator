@@ -14,7 +14,28 @@ class DiscogsCollectionScraper:
         self.save_dir = save_dir
         self.albums = []
         self.base_url = f'https://api.discogs.com/users/{username}/collection/folders/0/releases'
-        os.makedirs(save_dir, exist_ok=True)
+        os.makedirs(self.save_dir, exist_ok=True)
+
+    def cleanup_old_files(self):
+        """Remove old image files that are no longer referenced."""
+        current_files = set(os.listdir(self.save_dir))
+        current_files.discard('albums.json')
+
+        json_path = os.path.join(self.save_dir, 'albums.json')
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, 'r') as f:
+                    old_data = json.load(f)
+                    keep_files = {album['filename'] for album in old_data}
+                    for file in current_files:
+                        if file not in keep_files and file != 'albums.json':
+                            try:
+                                os.remove(os.path.join(self.save_dir, file))
+                                logger.info(f"Removed old file: {file}")
+                            except OSError as e:
+                                logger.error(f"Error removing file {file}: {e}")
+            except Exception as e:
+                logger.error(f"Error cleaning up old files: {e}")
 
     def get_collection_page(self, page=1):
         headers = {
@@ -42,17 +63,26 @@ class DiscogsCollectionScraper:
             response.raise_for_status()
 
             file_path = os.path.join(self.save_dir, filename)
-            with open(file_path, 'wb') as f:
-                f.write(response.content)
-            logger.info(f"Successfully saved image to {filename}")
+            if not os.path.exists(file_path):
+                with open(file_path, 'wb') as f:
+                    f.write(response.content)
+                logger.info(f"Successfully saved new image to {filename}")
+            else:
+                logger.info(f"Image {filename} already exists, skipping download")
             return filename
         except Exception as e:
             logger.error(f"Error downloading image {img_url}: {str(e)}")
             return None
 
+    def generate_filename(self, artist, title):
+        clean_name = "".join(c for c in f"{artist}_{title}" if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        return f"{clean_name[:100]}.jpg"
+
     def scrape_collection(self):
+        self.cleanup_old_files()
         page = 1
-        total_pages = 1  # Will be updated from API response
+        total_pages = 1
+        self.albums = []
 
         while page <= total_pages:
             logger.info(f"Processing page {page} of {total_pages}")
@@ -82,10 +112,7 @@ class DiscogsCollectionScraper:
 
                     logger.info(f"Processing album: {artist} - {title}")
 
-                    filename = f"{artist}_{title}.jpg"
-                    filename = "".join(c for c in filename if c.isalnum() or c in (' ', '-', '_')).rstrip()
-                    filename = f"{title[:50]}.jpg"
-
+                    filename = self.generate_filename(artist, title)
                     if self.download_image(cover_image, filename):
                         self.albums.append({
                             'filename': filename,
@@ -94,14 +121,13 @@ class DiscogsCollectionScraper:
                         })
                         logger.info(f"Successfully added album: {artist} - {title}")
 
-                time.sleep(1)  # Be nice to Discogs servers
+                time.sleep(1)
                 page += 1
 
             except Exception as e:
                 logger.error(f"Error processing page {page}: {str(e)}")
                 break
 
-        # Save album metadata
         if self.albums:
             metadata_path = os.path.join(self.save_dir, 'albums.json')
             with open(metadata_path, 'w') as f:
@@ -118,7 +144,7 @@ if __name__ == '__main__':
         logger.error("No Discogs token found in environment variables")
         exit(1)
 
-    username = "ingridvp"
+    username = os.environ.get('DISCOGS_USERNAME', 'ingridvp')
     scraper = DiscogsCollectionScraper(username, token)
     albums = scraper.scrape_collection()
     logger.info(f"Successfully scraped {len(albums)} albums")
