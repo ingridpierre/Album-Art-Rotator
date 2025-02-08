@@ -196,16 +196,13 @@
         </div>
         <div class="controls">
             <div class="control-group">
-                <select id="displayMode">
-                    <option value="single">Single</option>
-                    <option value="grid">Grid</option>
-                </select>
                 <label>
                     Speed
                     <input type="number" id="speed" value="4" min="1" max="60" step="1">
                 </label>
                 <button id="toggleInfo">Show Info</button>
                 <button id="playPause">Pause</button>
+                <button id="syncAlbums">Sync Albums</button>
             </div>
         </div>
     </div>
@@ -221,21 +218,20 @@
         const infoPanel = document.querySelector('.info-panel');
         const titleElement = document.querySelector('.artwork-title');
         const artistElement = document.querySelector('.artwork-artist');
-        const displayMode = document.getElementById('displayMode');
         const speedInput = document.getElementById('speed');
         const playPauseBtn = document.getElementById('playPause');
         const toggleInfoBtn = document.getElementById('toggleInfo');
         const toggleControlsBtn = document.getElementById('toggleControls');
         const controlsPanel = document.querySelector('.controls');
+        const syncAlbumsBtn = document.getElementById('syncAlbums');
 
         let albums = {{ albums|tojson|safe }};
         let currentIndex = 0;
         let isPlaying = true;
-        let showInfo = true; // Show info by default
+        let showInfo = true;
         let slideTimer;
-        let controlsVisible = false; // Hide controls by default
+        let controlsVisible = false;
 
-        // Fisher-Yates shuffle algorithm
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -244,10 +240,8 @@
             return array;
         }
 
-        // Shuffle albums initially
         albums = shuffleArray([...albums]);
 
-        // Simple function to get average color from an image
         function getAverageColor(img) {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
@@ -279,29 +273,18 @@
         }
 
         function updateDisplay() {
-            const mode = displayMode.value;
-            imageContainer.classList.toggle('grid-2x2', mode === 'grid');
-
-            const imagesToShow = mode === 'grid' ? 4 : 1;
             imageContainer.innerHTML = '';
+            const album = albums[currentIndex];
 
-            // Update background and info with the first visible album
-            const firstAlbum = albums[currentIndex];
-            updateBackground(firstAlbum);
-            updateInfo(firstAlbum);
+            updateBackground(album);
+            updateInfo(album);
 
-            for (let i = 0; i < imagesToShow; i++) {
-                const idx = (currentIndex + i) % albums.length;
-                const album = albums[idx];
-                if (!album) continue;
-
-                const wrapper = document.createElement('div');
-                wrapper.className = 'artwork-wrapper';
-                wrapper.innerHTML = `
-                    <img class="artwork" src="/static/images/${album.filename}" alt="Album Artwork">
-                `;
-                imageContainer.appendChild(wrapper);
-            }
+            const wrapper = document.createElement('div');
+            wrapper.className = 'artwork-wrapper';
+            wrapper.innerHTML = `
+                <img class="artwork" src="/static/images/${album.filename}" alt="Album Artwork">
+            `;
+            imageContainer.appendChild(wrapper);
         }
 
         function nextSlide() {
@@ -324,11 +307,6 @@
             }
         }
 
-        displayMode.addEventListener('change', () => {
-            updateDisplay();
-            updateTimer();
-        });
-
         speedInput.addEventListener('change', updateTimer);
 
         playPauseBtn.addEventListener('click', () => {
@@ -346,14 +324,32 @@
         toggleControlsBtn.addEventListener('click', () => {
             controlsVisible = !controlsVisible;
             controlsPanel.classList.toggle('hidden', !controlsVisible);
-            // Update icon based on state
             toggleControlsBtn.innerHTML = `<i data-feather="${controlsVisible ? 'x' : 'sliders'}"></i>`;
-            feather.replace(); // Re-initialize icons
+            feather.replace();
         });
 
+        syncAlbumsBtn.addEventListener('click', async () => {
+            syncAlbumsBtn.disabled = true;
+            syncAlbumsBtn.textContent = 'Syncing...';
+            try {
+                const response = await fetch('/sync_albums', { method: 'POST' });
+                const result = await response.json();
+                if (result.success) {
+                    // Reload the page to get new albums
+                    window.location.reload();
+                } else {
+                    alert('Failed to sync albums: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error syncing albums: ' + error);
+            } finally {
+                syncAlbumsBtn.disabled = false;
+                syncAlbumsBtn.textContent = 'Sync Albums';
+            }
+        });
 
         // Initial setup
-        speedInput.value = 6; // Set default speed to 6
+        speedInput.value = 6;
         updateDisplay();
         updateTimer();
 

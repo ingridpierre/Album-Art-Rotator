@@ -3,6 +3,7 @@ import os
 import socket
 import logging
 import json
+from discogs_scraper import DiscogsCollectionScraper
 
 app = Flask(__name__)
 
@@ -47,6 +48,28 @@ def index():
                 albums.append({'filename': filename, 'title': filename, 'artist': ''})
 
     return render_template('index.html', albums=albums)
+
+@app.route('/sync_albums', methods=['POST'])
+def sync_albums():
+    try:
+        token = os.environ.get('DISCOGS_TOKEN')
+        if not token:
+            return jsonify({'success': False, 'error': 'Discogs token not configured'}), 400
+
+        username = os.environ.get('DISCOGS_USERNAME', 'ingridvp')
+        scraper = DiscogsCollectionScraper(username, token)
+        albums = scraper.scrape_collection()
+
+        return jsonify({
+            'success': True,
+            'message': f'Successfully synced {len(albums)} albums'
+        })
+    except Exception as e:
+        app.logger.error(f"Error syncing albums: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     # Configure logging
