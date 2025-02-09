@@ -21,3 +21,8 @@ Thumbs.db
 #static/images/*
 #!static/images/.gitkeep
 *.log
+
+#IVP selection
+pyproject.toml
+replit.nix
+uv.lock
