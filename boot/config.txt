@@ -1,0 +1,22 @@
+# Enable I2C
+dtparam=i2c_arm=on
+dtparam=i2c=on
+
+# Display configuration for 4-inch Waveshare
+hdmi_group=2
+hdmi_mode=87
+hdmi_cvt=720 720 60 1 0 0 0
+hdmi_force_hotplug=1
+
+# Touch screen configuration
+dtoverlay=waveshare-4inch-capacitive-touch,speed=400000,rotate=0
+dtparam=touchscreen-swapped-x-y=0
+dtparam=touchscreen-inverted-x=0
+dtparam=touchscreen-inverted-y=0
+
+# Enable better touch responsiveness
+dtparam=i2c_arm_baudrate=400000
+
+# Additional touch screen parameters
+dtoverlay=rpi-ft5406
+max_usb_current=1
