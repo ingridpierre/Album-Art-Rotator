@@ -1,5 +1,7 @@
 {pkgs}: {
   deps = [
+    pkgs.xvfb-run
+    pkgs.scrot
     pkgs.zlib
     pkgs.tk
     pkgs.tcl
