@@ -2,6 +2,7 @@
 <html>
 <head>
     <title>Album Artwork Display</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/cursor.css') }}">
     <style>
         body {
             margin: 0;
@@ -57,7 +58,6 @@
             opacity: 0;
         }
         .artwork-wrapper {
-            /* Center the artwork-wrapper in the main-container */
             position: absolute;
             top: 50%;
             left: 50%;
@@ -210,6 +210,7 @@
         <i data-feather="sliders"></i>
     </button>
 
+    <script src="{{ url_for('static', filename='js/cursor_manager.js') }}"></script>
     <script>
         const container = document.querySelector('.display-container');
         const imageContainer = document.querySelector('.image-container');
@@ -334,7 +335,6 @@
                 const response = await fetch('/sync_albums', { method: 'POST' });
                 const result = await response.json();
                 if (result.success) {
-                    // Reload the page to get new albums
                     window.location.reload();
                 } else {
                     alert('Failed to sync albums: ' + result.error);
@@ -347,21 +347,17 @@
             }
         });
 
-        // Initial setup
         speedInput.value = 10;
         updateDisplay();
         updateTimer();
 
-        // Set initial states
         infoPanel.classList.toggle('hidden', !showInfo);
         controlsPanel.classList.toggle('hidden', !controlsVisible);
         toggleInfoBtn.textContent = showInfo ? 'Hide Info' : 'Show Info';
         toggleControlsBtn.innerHTML = `<i data-feather="${controlsVisible ? 'x' : 'sliders'}"></i>`;
 
-        // Initialize Feather Icons
         feather.replace();
 
-        // Preload images
         albums.forEach(album => {
             const img = new Image();
             img.src = `/static/images/${album.filename}`;

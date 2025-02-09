@@ -1,0 +1,14 @@
+/* Default cursor state */
+body {
+    cursor: default;
+}
+
+/* Hidden cursor state */
+body.cursor-hidden {
+    cursor: none !important;
+}
+
+/* Ensure all elements inherit the cursor state */
+* {
+    cursor: inherit;
+}
